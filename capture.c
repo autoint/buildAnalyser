@@ -1,4 +1,12 @@
+
+#ifdef WIN32
 #include "windows.h"
+#elif LIN
+#error "Host Linux/OSX not supported"
+#else
+#error "Host not supported"
+#endif
+
 #include "stdio.h"
 #include "string.h"
 
