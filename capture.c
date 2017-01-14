@@ -9,11 +9,18 @@ And the compiler's access to its standard headers could be based on a relative p
 
 #define MAXCOMMANDLINE 0x10000
 unsigned char commandline [MAXCOMMANDLINE] ;
+unsigned char newcommandline [MAXCOMMANDLINE] ;
 unsigned char programname [MAXCOMMANDLINE] ;
 unsigned char currentdirectory [MAXCOMMANDLINE] ;
 unsigned char timestring [100];
 
+/*
 const char name_of_real_compiler [] = {"C:\\VCAST\\64n\\MinGW\\bin\\gcc_real.exe"};
+*/
+const char name_of_real_compiler [] = {"\"C:\\Program Files\\mingw-w64\\x86_64-6.3.0-posix-seh-rt_v5-rev0\\mingw64\\bin\\gcc.exe\""};
+/*
+const char name_of_real_compiler [] = {"explorer.exe"};
+*/
 
 int readline ( FILE * cmdfile, unsigned char * linebuffer , unsigned long linebufferlength );
 
@@ -104,7 +111,8 @@ int main ( int argc, char * argv[] )
     }
 #endif
     strcpy ( (char*) programname,  name_of_real_compiler );   
-    // printf("\nWill execute program %s with command line %s", programname, commandline );
+    sprintf(newcommandline, "%s %s", programname, &(commandline[4]) );
+    printf("New command [%s]", newcommandline);
     fprintf(logfile, "\nPWD: %s", currentdirectory);
 
     // that MUST be a full path to the process with c: and .exe
@@ -113,8 +121,8 @@ int main ( int argc, char * argv[] )
     ZeroMemory( &si, sizeof(si) );
     si.cb = sizeof(si);
     BOOL result = CreateProcess(
-    (LPCTSTR) programname,
-    (LPTSTR) commandline,
+    (LPCTSTR) 0,
+    (LPTSTR) newcommandline,
         0, //   __in_opt     LPSECURITY_ATTRIBUTES lpProcessAttributes,
         0, //   __in_opt     LPSECURITY_ATTRIBUTES lpThreadAttributes,
         0, //  __in         BOOL bInheritHandles,
@@ -125,7 +133,7 @@ int main ( int argc, char * argv[] )
         &p_i  // __out        LPPROCESS_INFORMATION lpProcessInformation
     );
 
-    // printf ("\nResult = %d",(int)result) ;    // 1 is a good result.
+    printf ("\nResult = %d",(int)result) ;    // 1 is a good result.
     if (result)
     {
        WaitForSingleObject( p_i.hProcess, INFINITE );
