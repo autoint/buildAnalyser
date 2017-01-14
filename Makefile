@@ -1,11 +1,11 @@
-ifdef COMSPEC
- MV ?= move
- RM ?= del
- HOST_DEFINE ?= -DWIN32
+ifdef ComSpec
+	MV = move
+	RM = del
+	HOST_DEFINE ?= -DWIN32
 else
- MV ?= mv -f
- RM ?= rm -f
- HOST_DEFINE ?= -DLIN
+	MV = mv -f
+	RM = rm -f
+	HOST_DEFINE ?= -DLIN
 endif
 
 capture.exe : capture.o
@@ -18,7 +18,7 @@ capture.o : capture.c
 	gcc -c $(HOST_DEFINE) capture.c
 
 clean : 
-	$(RM) *.o *.exe
+	$(RM) *.o gcc.exe capture.exe
 
 publish : capture.exe
 	$(RM) *.o
