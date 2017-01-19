@@ -14,6 +14,9 @@ capture.exe : capture.o
 gcc.exe : capture.o
 	gcc -o gcc.exe capture.o
 
+gcc : capture.exe
+	$(MV) capture.exe gcc
+
 capture.o : capture.c 
 	gcc -c $(HOST_DEFINE) capture.c
 

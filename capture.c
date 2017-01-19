@@ -1,14 +1,20 @@
 
 #ifdef WIN32
 #include "windows.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 #elif LIN
-#error "Host Linux/OSX not supported"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <stdbool.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #else
 #error "Host not supported"
 #endif
-
-#include "stdio.h"
-#include "string.h"
 
 /* capture the command line to a log file and then give the command to the real compiler */
 /* note real world constraints here, very often the build system knows the absolute path to the compiler so our substitute MUST go there.
@@ -25,23 +31,85 @@ unsigned char timestring [100];
 /*
 const char name_of_real_compiler [] = {"C:\\VCAST\\64n\\MinGW\\bin\\gcc_real.exe"};
 */
-const char name_of_real_compiler [] = {"\"C:\\Program Files\\mingw-w64\\x86_64-6.3.0-posix-seh-rt_v5-rev0\\mingw64\\bin\\gcc.exe\""};
+const char name_of_real_compiler [] = {"/usr/bin/gcc"};
 /*
 const char name_of_real_compiler [] = {"explorer.exe"};
 */
 
 int readline ( FILE * cmdfile, unsigned char * linebuffer , unsigned long linebufferlength );
 
+
+#ifdef LIN
+int CreateProcess(const char* command, const char* parametersIn)
+{
+    const int maxNumArgs = 1024;
+    const char* args[maxNumArgs];
+    char* parameters = NULL;
+
+    memset(args, 0, (sizeof(char*) * maxNumArgs));
+    args[0] = command;
+
+    if(parametersIn != NULL)
+    {
+        parameters = strdup(parametersIn);
+        int strLen = strlen(parameters);
+
+        int numParameters = 1;
+        bool expectNextParam = true;
+        int i;
+        for(i = 0; i < strLen; i++)
+        {
+            if(parameters[i] == ' ' || parameters[i] == '\t' ||
+               parameters[i] == '\n')
+            {
+                expectNextParam = true;
+                parameters[i] = '\0';
+            }
+            else if(expectNextParam)
+            {
+                args[numParameters] = &(parameters[i]);
+                numParameters++;
+                expectNextParam = false;
+            }
+        }
+    }
+
+    pid_t pid = fork();
+    if(pid == 0)
+    {
+        execvp(command, (char**)args);
+        _exit(1);
+    }
+
+    if(parameters != NULL)
+        free(parameters);
+
+    return pid;
+}
+#endif
+
+
+
 int main ( int argc, char * argv[] )
 {
  
+    int curdirlen = 0;
     // printf("\nUsage : compilername arguments");
+    #ifdef WIN32
     SYSTEMTIME thesystemtime ;
     GetSystemTime (&thesystemtime);
     sprintf ( (char*)timestring, "%d/%d/%d %d:%d:%d", (int) thesystemtime.wYear, (int)thesystemtime.wMonth, (int) thesystemtime.wDay,
         (int)thesystemtime.wHour, (int)thesystemtime.wMinute, (int)thesystemtime.wSecond);
+    #endif
     currentdirectory [0] = 0 ;
+    #ifdef WIN32
     int curdirlen = GetCurrentDirectory ( MAXCOMMANDLINE-2, (LPSTR)currentdirectory  );
+    #elif LIN
+    if (getcwd(currentdirectory, sizeof(currentdirectory)) != NULL)
+    {
+      curdirlen = strlen(currentdirectory);
+    }
+     #endif
     if (curdirlen > 0)
     {
         // printf("\nCurrent directory is %s", currentdirectory );
@@ -100,10 +168,10 @@ int main ( int argc, char * argv[] )
     }
 
     /* copy the first element of the commandline to the programname */
-#if 0    
-    strcpy ( (char*) programname, path_to_real_compiler );
+#if 1    
+    strcpy ( (char*) programname, name_of_real_compiler );
     i = 0;
-    int j = strlen (path_to_real_compiler) ;
+    int j = strlen (name_of_real_compiler) ;
     for (i=0; i< (MAXCOMMANDLINE-(j+1)); i++)
     {
         if ( commandline[i] <= 0x20 ) /* look for space to terminate program name */
@@ -117,18 +185,22 @@ int main ( int argc, char * argv[] )
     {
         strcat ( (char*)programname, ".exe");
     }
-#endif
+    printf("New Command [%s]", commandline);
+#else
     strcpy ( (char*) programname,  name_of_real_compiler );   
-    sprintf(newcommandline, "%s %s", programname, &(commandline[4]) );
+    sprintf(newcommandline, "%s %s", programname, &(name_of_real_compiler[4]) );
     printf("New command [%s]", newcommandline);
     fprintf(logfile, "\nPWD: %s", currentdirectory);
+#endif
+
 
     // that MUST be a full path to the process with c: and .exe
+#ifdef WIN32
     PROCESS_INFORMATION p_i ;
     STARTUPINFO si ;
     ZeroMemory( &si, sizeof(si) );
     si.cb = sizeof(si);
-    BOOL result = CreateProcess(
+    int result = CreateProcess(
     (LPCTSTR) 0,
     (LPTSTR) newcommandline,
         0, //   __in_opt     LPSECURITY_ATTRIBUTES lpProcessAttributes,
@@ -140,11 +212,19 @@ int main ( int argc, char * argv[] )
         &si, // __in         LPSTARTUPINFO lpStartupInfo,
         &p_i  // __out        LPPROCESS_INFORMATION lpProcessInformation
     );
-
-    printf ("\nResult = %d",(int)result) ;    // 1 is a good result.
+#elif LIN
+   int result = CreateProcess(name_of_real_compiler, &commandline[4]);
+#else
+  #error "Unkown host"
+#endif
+    printf ("\nResult = %d\n",(int)result) ;    // 1 is a good result.
     if (result)
     {
+       #ifdef WIN32
        WaitForSingleObject( p_i.hProcess, INFINITE );
+       #else
+       wait(&result);
+       #endif
     }
 
     fclose ( logfile);
