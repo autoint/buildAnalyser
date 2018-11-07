@@ -1,7 +1,7 @@
 pipeline {
   agent {
     node {
-      label 'linux ubuntu'
+      label 'LIN_WKR'
     }
 
   }
